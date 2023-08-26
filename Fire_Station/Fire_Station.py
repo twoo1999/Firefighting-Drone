@@ -21,6 +21,8 @@ global lat_curr
 global lon_curr
 global lat
 global lon
+
+# 현재 위치(소방서)
 lat_curr = 37.670806
 lon_curr = 126.778892
 
@@ -64,6 +66,8 @@ def cancel():
     os.remove("map.html")
     setButtonState(0)
 
+
+# start 버튼 클릭 시
 def start():
     global lat
     global lon
@@ -76,7 +80,7 @@ def start():
 def showMap():
     webbrowser.open("map.html")
     
-
+# 위치 정보를 주소로 변환
 def geocoding_reverse(lat, lon): 
     geolocoder = Nominatim(user_agent = 'South Korea', timeout=None)
     address = geolocoder.reverse(f"{lat}, {lon}")
@@ -85,6 +89,7 @@ def geocoding_reverse(lat, lon):
 def mqtt_s():
     s_st.loop_forever()
     
+# mqtt 데이터 수신 시 동작
 def call_back(client, userdata, message):
     global lat_curr
     global lon_curr
@@ -92,16 +97,26 @@ def call_back(client, userdata, message):
     global lon
     string = str(message.payload.decode("utf-8"))
     cmd = string.split(",")
+    
+    # 앱을 통해 신고 시 
     if(cmd[0] == 'report'):
         address = geocoding_reverse(cmd[1], cmd[2])
         #print(type(address))
+        
+        # 신고 위치
         lat = float(cmd[1])
         lon = float(cmd[2])
+        
+        # 수신받은 위치 정보를 html형태의 맵으로 저장 
         m = folium.Map(location=[(lat+lat_curr)/2, (lon+lon_curr)/2], zoom_start=20)
         folium.Marker([lat_curr, lon_curr], popup='<b>Fire Station</b>').add_to(m)
         folium.Marker([lat, lon], popup='<b>Destination</b>').add_to(m)
         m.save("map.html")
+
+        # 저장한 html파일을 오픈
         webbrowser.open("map.html")
+
+        # 수신받은 위치 정보를 GUI에 표현
         fireStation = (lat_curr, lon_curr)
         dest = (lat, lon)
         dist = str(round(haversine(fireStation, dest, unit = 'km'), 2))
@@ -109,108 +124,36 @@ def call_back(client, userdata, message):
         setButtonState(1)
     
         messagebox.showinfo("report", "신고가 들어왔습니다.")
+    
+    # 드론이 목적지에 도착 시 
     elif(cmd[0] == "arriveDest"):
         lb_arrive_curr.config(text="O")
         messagebox.showinfo("Throw", "소화기를 투척합니다.")
+
+    # 드론이 미션을 마치고 소방서로 돌아왔을 시
     elif(cmd[0] == "arriveHome"):
         messagebox.showinfo("arrive", "드론이 복귀했습니다.")
         lb_arrive_curr.config(text="X")
         lb_mission_curr.config(text='X')
         cancel()
-        # et_lat_curr['state'] = 'normal'
-        # et_lon_curr['state'] = 'normal'
-        # et_address_curr['state'] = 'normal'
-        # et_dist_curr['state'] = 'normal'
-        
-        # et_lat_curr.insert(0, f"{lat}")
-        # et_lon_curr.insert(0, f"{lon}")
-        # et_address_curr.insert(0, f"{address}")
-        # et_dist_curr.insert(0, f"{dist}km")
 
-        # et_lat_curr['state'] = 'readonly'
-        # et_lon_curr['state'] = 'readonly'
-        # et_address_curr['state'] = 'readonly'
-        # et_dist_curr['state'] = 'readonly'
-        
-     
-        
-        
-        
-        
-    # command, latitude, longitude = string.split(",")
-    # address = geocoding_reverse(latitude, longitude)
-    # lat = float(latitude)
-    # lon = float(longitude)
-    
-    # m = folium.Map(location=[(lat+lat_curr)/2, (lon+lon_curr)/2], zoom_start=15)
-    # folium.Marker([lat_curr, lon_curr], popup='<b>Fire Station</b>').add_to(m)
-    # folium.Marker([lat, lon], popup='<b>Destination</b>').add_to(m)
-    # m.save("map.html")
-    # webbrowser.open("map.html")
-    # address = geocoding_reverse(latitude, longitude)
-    # et_lat_curr['state'] = 'nomal'
-    # et_lon_curr['state'] = 'nomal'
-    # et_address_curr['state'] = 'noaml'
-    # et_lat_curr.config(text=f"{lat}")
-    # et_lon_curr.config(text=f"{lon}")
-    # et_address_curr.config(text=f"{address}")
 
-    # if(command == "report"):
-    #     messagebox.showinfo("report", "there is report")
-    #     if(msg == "yes"):
-    #         s_st.publish("data/drone", (latitude + "," + longitude))
-    #         frame.sett("on progress")
-    #         frame.createLatitude(latitude)
-    #         frame.createLongitude(longitude)
-    # elif(string == "done"):
-    #     messagebox.showinfo("info", "mission clear!")
-    #     frame.sett("no progress")
-
- 
-    
-# if __name__ == '__main__':
-#     broker = "210.106.192.242"
-#     s_st = mqtt.Client("mqtt_ST")
-#     s_st.on_message = call_back
- 
-    
-#     s_st.connect(broker, 1883)
-#     s_st.subscribe("data/ST")
-    
-#     root = Tk()
-#     root.title('GUI')
-#     f1 = Frame(root, width=500, height=500)
-#     f2 = Frame(root, width=500, height=500)
-#     frame1 = Frame_1(f1)
-#     frame2 = Frame_2(f2)
-#     frame1.pack(side="left")
-#   #  frame2.pack(side="right")
-    
-    
-#     # t2 = threading.Thread(target=mqtt_s)
-#     # t2.start()
-    
-    # root.mainloop()
-#     # t2.join()
-    # fireStation = (lat_curr, lon_curr)  #Latitude, Longitude
-
-    # # 거리 계산
-    # haversine(Seoul, Toronto, unit = 'km')
-    
+# mqtt 연결
 broker = "210.106.192.242"
 s_st = mqtt.Client("mqtt_ST")
 s_st.on_message = call_back
- 
     
 s_st.connect(broker, 1883)
 s_st.subscribe("data/ST")
-            
-            # lb_lat_curr.insert(0, "asd")   
+
+
+# tkinter 사용           
 root = Tk()
 root.title('GUI')
 root.geometry("600x500")
 
 
+# GUI 위젯 설정 및 배치
 lbFrame_place = LabelFrame(root, text = "위치 정보", pady = 20, padx = 20)
 lbFrame_state = LabelFrame(root, text = "드론 상태", padx = 20, pady = 20)
 
@@ -279,13 +222,6 @@ btn_map.grid(row=0, column=2, padx=10, ipadx=5)
 
 buttonFrame.pack(side='top')
 
-
-
-
-
-
-
-
 lb_mission_curr = Label(lbFrame_state, text="X")
 lb_mission = Label(lbFrame_state, text="미션 수행 중")
 
@@ -314,65 +250,3 @@ t2.join()
 
     
     
-    
-    # class MyFrame(Frame):
-    #     def __init__(self, master=Frame):
-    #         self.lb_dronestate = Label(master, text = "drone state : ")
-    #         self.lb_curdronestate = Label(master, text = "nomal")
-    #         self.lb_latitude= Label(master, text = "")
-    #         self.lb_longitude = Label(master, text = "")
-    #         self.lb_lat = Label(master, text = "Latitude : ")
-    #         self.lb_long = Label(master, text = "Longitude : ")
-    #         self.btn_map = Button(master, text = "지도 보기")
-    #         self.lb_dronestate.place(x=20, y=50)
-    #         self.lb_curdronestate.place(x=90, y=50)
-    #         self.lb_lat.place(x=20, y=100)
-    #         self.lb_latitude.place(x=90, y=100)
-    #         self.lb_longitude.place(x=90, y=150)
-    #         self.lb_long.place(x=20, y=150)
-            
-            
-    #     def sett(self, text1):
-    #         self.lb_curdronestate.config(text=text1)
-            
-    #     def createLatitude(self, pos):
-    #         self.lb_latitude.config(text = pos)
-            
-    #     def createLongitude(self, pos):
-    #         self.lb_longitude.config(text=pos)
-        
-            
-    # class Frame_1(Frame):
-    #     def __init__(self, master=Frame):
-    #         self.lb_lat = Label(master, text="Latitude")
-    #         self.lb_lon = Label(master, text="Longitude")
-    #         self.lb_lat_curr = Label(master, text="")
-    #         self.lb_lon_curr = Label(master, text="")
-    #         self.lb_state_curr = Label(master, text="Not Yet")
-    #         self.lb_state = Label(master, text="Drone")
-            
-    #         self.lb_lat.grid(row=0,column=0)
-    #         self.lb_lat_curr.grid(row=0,column=1)
-            
-    #         self.lb_lon.grid(row=1,column=0)
-    #         self.lb_lon_curr.grid(row=1,column=1)
-            
-    #         self.lb_state.grid(row=2,column=0)
-    #         self.lb_state_curr.grid(row=2,column=1)
-
-    #     def setText(self, lb, msg):
-    #         lb.config(text=msg)
-            
-    # class Frame_2(Frame):
-    #     def __init__(self, master=Frame):
-    #         self.btn_map = Button(master, text="지도보기")
-    #         self.btn_start = Button(master, text="드론 출발")
-            
-    #         self.btn_map.grid(row= 0 , column = 0)
-    #         self.btn_start.grid(row= 1 , column = 0)
-         
-    # def geocoding_reverse(lat, lon): 
-    #     geolocoder = Nominatim(user_agent = 'South Korea', timeout=None)
-    #     address = geolocoder.reverse(f"{lat}, {lon}")
-
-    #     return address
